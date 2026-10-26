@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
+<meta name="referrer" content="no-referrer">
+<title>色橋遊月</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Yusei+Magic&display=swap" rel="stylesheet">
+<style>
+  /* Layout: 入口は待たせない。第一画面で名前・照らせる廊下・2つの入口(作品 / BORDER)を出し、
+     作品はひとつの一覧にまとめて拡大ビューアで見る。BORDERは廊下を歩く章として独立させ、展示、プロフィールの順に閉じる。 */
+  @property --lr{syntax:"<length>";inherits:true;initial-value:520px}
+  @property --ld{syntax:"<number>";inherits:true;initial-value:.45}
+  :root{
+    --void:#14130d;
+    --void-2:#1c1b12;
+    --void-3:#26241a;
+    --lamp:#f1ebc2;
+    --ink:#e8e3cc;
+    --ink-dim:#a39f88;
+    --line:rgba(241,235,194,.16);
+    --line-2:rgba(241,235,194,.3);
+    --spiral:#86ecec;
+    --flick:1;
+    --f-display:"Kaisei Decol","Hiragino Mincho ProN","Yu Mincho",serif;
+    --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+    --f-hand:"Yusei Magic","Hiragino Maru Gothic ProN",sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
+  html.vopen{overflow:hidden}
+  body{background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.9;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--void);z-index:30}
+  img{display:block;max-width:100%}
+  a{color:inherit}
+  button{font:inherit;color:inherit}
+  .in{max-width:1120px;margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .sp{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:square;flex:none}
+  :focus-visible{outline:2px solid var(--spiral);outline-offset:3px}
+  /* 長押しで「画像を保存」が出ないようにする */
+  img,canvas,.frame,.walk-fig,.v-stage{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  img{-webkit-user-drag:none}
+  .frame>img,.walk-img,.card img,.v-stage img{pointer-events:none}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--f-body);font-size:15px;font-weight:500;line-height:1.4;min-height:46px;padding:10px 22px;border:1px solid var(--lamp);background:transparent;color:var(--lamp);text-decoration:none;cursor:pointer;transition:background .2s,color .2s}
+  .btn:hover{background:rgba(241,235,194,.12)}
+  .btn.fill{background:var(--lamp);color:var(--void)}
+  .btn.fill:hover{background:#fff8d0}
+  .btn.sm{min-height:40px;padding:6px 16px;font-size:13px;font-family:var(--f-hand)}
+
+  /* ---------- header ---------- */
+  .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(20,19,13,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  .bar .in{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:8px;flex:none;text-decoration:none;color:var(--spiral);font-family:var(--f-display);font-weight:700;font-size:16px;letter-spacing:.06em;padding-block:10px}
+  .logo span{color:var(--ink)}
+  .bar nav{display:flex;gap:clamp(6px,2.4vw,22px)}
+  .bar nav a{display:block;font-size:14px;line-height:1.4;text-decoration:none;color:var(--ink-dim);padding:15px 8px 13px;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
+  .bar nav a:hover,.bar nav a.on{color:var(--lamp);border-color:var(--spiral)}
+  @media (max-width:520px){.logo span{display:none}.bar nav{margin-left:auto}}
+
+  .snd{display:inline-flex;position:fixed;z-index:25;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));
+    align-items:center;gap:8px;font-family:var(--f-hand);font-size:13px;color:var(--lamp);background:rgba(20,19,13,.9);border:1px solid var(--line-2);min-height:40px;padding:6px 14px;cursor:pointer}
+  .snd[aria-pressed="true"]{border-color:var(--spiral)}
+  .snd i{width:8px;height:8px;background:var(--ink-dim)}
+  .snd[aria-pressed="true"] i{background:var(--spiral)}
+  html.vopen .snd{display:none}
+
+  /* ---------- hero ---------- */
+  .hero .in{display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(16px,4vw,48px);padding-block:clamp(24px,4vw,48px) clamp(40px,6vw,72px)}
+  .name{display:flex;flex-direction:row-reverse;gap:12px;align-items:flex-start}
+  .name h1{margin:0;writing-mode:vertical-rl;font-family:var(--f-display);font-weight:700;font-size:clamp(52px,9vw,120px);line-height:1.2;letter-spacing:.12em;color:var(--lamp)}
+  .name .yomi{writing-mode:vertical-rl;font-family:var(--f-hand);font-size:13px;color:var(--ink-dim);letter-spacing:.3em;margin-top:.6em}
+  .hero-main{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .frame{position:relative;background:#000;aspect-ratio:1400/990;overflow:hidden;touch-action:pan-y;cursor:crosshair;--lx:50%;--ly:50%}
+  .frame>img{width:100%;height:100%;object-fit:cover;filter:brightness(var(--flick))}
+  .lamp{position:absolute;inset:0;pointer-events:none;--lr:520px;--ld:.42;transition:--lr .6s ease,--ld .6s ease;
+    background:radial-gradient(circle var(--lr) at var(--lx) var(--ly),rgba(0,0,0,0) 0,rgba(0,0,0,calc(var(--ld)*.3)) 45%,rgba(0,0,0,var(--ld)) 100%)}
+  .frame.lit .lamp{--lr:230px;--ld:.86}
+  .eye{position:absolute;aspect-ratio:40/24;transform:translate(-50%,-50%);pointer-events:none}
+  .eye svg{display:block;width:100%;height:100%;overflow:visible}
+  .eye .ball{transform-box:fill-box;transform-origin:center;transform:scaleY(.07);opacity:.5;transition:transform .22s ease,opacity .22s ease}
+  .eye.open .ball{transform:scaleY(1);opacity:1}
+  .eye .lid{fill:#ece7c9;stroke:#0d0c08;stroke-width:1.8}
+  .eye .iris{fill:#3a3520}
+  .eye .pup{fill:#000}
+  .hint{margin:-6px 0 0;font-family:var(--f-hand);font-size:13px;color:var(--ink-dim)}
+  .thesis{margin:0;font-family:var(--f-display);font-size:clamp(19px,2.6vw,27px);line-height:1.7;max-width:26em;text-wrap:balance;color:var(--lamp)}
+  .meta{margin:0;font-family:var(--f-hand);font-size:13px;color:var(--ink-dim)}
+  .hero-cta{display:flex;flex-wrap:wrap;gap:12px}
+  .now{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:0;font-size:13.5px;color:var(--ink-dim)}
+  .now b{font-family:var(--f-hand);font-weight:400;color:var(--spiral);letter-spacing:.08em}
+  .now a{color:var(--lamp);text-underline-offset:5px}
+  @media (max-width:640px){
+    .hero .in{grid-template-columns:minmax(0,1fr)}
+    .name{flex-direction:column;align-items:flex-start;gap:4px}
+    .name h1{writing-mode:horizontal-tb;white-space:nowrap;font-size:clamp(44px,14vw,64px);letter-spacing:.1em;line-height:1.2}
+    .name .yomi{writing-mode:horizontal-tb;margin:0;letter-spacing:.2em}
+    .hero-cta .btn{flex:1 1 150px}
+  }
+
+  /* ---------- sections ---------- */
+  section{padding-block:clamp(56px,9vw,104px);border-top:1px solid var(--line);scroll-margin-top:52px}
+  .sh{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin:0 0 12px}
+  h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4.4vw,40px);letter-spacing:.08em;line-height:1.3;color:var(--lamp)}
+  .count{font-family:var(--f-hand);font-size:13px;color:var(--spiral);letter-spacing:.08em}
+  .lede{max-width:34em;margin:0 0 28px;font-size:15.5px;line-height:2.1}
+
+  /* ---------- works ---------- */
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 28px}
+  .chip{min-height:42px;padding:6px 18px;border:1px solid var(--line-2);background:transparent;font-size:14px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+  .chip:hover{border-color:var(--lamp)}
+  .chip[aria-pressed="true"]{background:var(--lamp);color:var(--void);border-color:var(--lamp)}
+  .works{columns:1;column-gap:16px}
+  @media (min-width:600px){.works{columns:2}}
+  @media (min-width:960px){.works{columns:3}}
+  .card{display:block;width:100%;margin:0 0 16px;padding:0;border:1px solid var(--line);background:var(--void-2);text-align:left;cursor:pointer;break-inside:avoid;transition:border-color .2s,transform .2s}
+  .card:hover,.card:focus-visible{border-color:var(--spiral)}
+  .card[hidden]{display:none}
+  .card.art img{width:100%;height:auto;filter:brightness(.92);transition:filter .3s}
+  .card.art:hover img,.card.art:focus-visible img{filter:brightness(1.05);animation:glitch .38s steps(1,end) 1}
+  @keyframes glitch{
+    0%{filter:none;transform:none}
+    18%{filter:drop-shadow(4px 0 0 rgba(255,40,80,.6)) drop-shadow(-4px 0 0 rgba(40,255,255,.6));transform:translateX(-3px)}
+    42%{filter:drop-shadow(-3px 0 0 rgba(255,40,80,.6)) drop-shadow(3px 0 0 rgba(40,255,255,.6));transform:translateX(3px)}
+    66%{filter:drop-shadow(2px 0 0 rgba(255,40,80,.5)) drop-shadow(-2px 0 0 rgba(40,255,255,.5));transform:none}
+    100%{filter:none;transform:none}
+  }
+  .card .cap{display:flex;flex-direction:column;gap:2px;padding:12px 14px 14px}
+  .tag{font-family:var(--f-hand);font-size:12px;letter-spacing:.12em;color:var(--spiral)}
+  .card h3{margin:0;font-family:var(--f-display);font-size:18px;line-height:1.5;color:var(--lamp)}
+  .card .sub{font-size:13px;line-height:1.7;color:var(--ink-dim)}
+  .card.tx{padding:20px 18px 18px;display:flex;flex-direction:column;gap:6px;min-height:200px;
+    background:linear-gradient(0deg,rgba(20,19,13,.0),rgba(20,19,13,0)),var(--void-2)}
+  .card.tx.code{background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:22px 22px;background-position:-1px -1px}
+  .card.tx.text{background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:26px 26px;background-position:8px 6px}
+  .card.tx .glyph{width:34px;height:34px;color:var(--spiral);margin-bottom:auto}
+  .card.tx h3{margin-top:28px}
+  .card.tx .open{margin-top:8px;font-size:12.5px;color:var(--spiral)}
+  .card.tx.sp-tall{min-height:240px}
+
+  /* ---------- viewer ---------- */
+  .viewer{position:fixed;inset:0;z-index:50;background:#0a0905;display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto minmax(0,1fr);
+    padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+  .viewer[hidden]{display:none}
+  .v-top{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+  .v-count{font-family:var(--f-hand);font-size:13px;color:var(--ink-dim);letter-spacing:.1em}
+  .v-stage{position:relative;min-width:0;min-height:0;overflow:auto;display:grid;place-items:center;padding:16px;touch-action:pan-x pan-y}
+  .v-stage img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;cursor:zoom-in;pointer-events:auto}
+  .v-stage.zoomed{place-items:start}
+  .v-stage.zoomed img{max-width:none;max-height:none;width:210%;cursor:zoom-out}
+  .v-panel{width:100%;max-width:520px;min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;padding:28px 24px;border:1px solid var(--line-2);background-color:var(--void-2);
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:26px 26px}
+  .v-panel .glyph{width:56px;height:56px;color:var(--spiral);margin-bottom:auto}
+  .v-panel b{font-family:var(--f-display);font-size:clamp(26px,4vw,40px);line-height:1.35;color:var(--lamp);letter-spacing:.04em}
+  .v-info{min-height:0;overflow:auto;border-left:1px solid var(--line);padding:24px max(20px,env(safe-area-inset-right,0px)) 28px 24px;display:flex;flex-direction:column;gap:16px}
+  .v-info h3{margin:0;font-family:var(--f-display);font-size:26px;line-height:1.4;color:var(--lamp)}
+  .v-info p{margin:0;font-size:14.5px;line-height:2}
+  .v-info dl{margin:0;display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:8px 12px;font-size:13.5px}
+  .v-info dt{font-family:var(--f-hand);font-size:12.5px;color:var(--ink-dim)}
+  .v-info dd{margin:0;overflow-wrap:anywhere}
+  .v-info blockquote{margin:0;padding:2px 0 2px 16px;border-left:1px solid var(--spiral);font-family:var(--f-display);font-size:15.5px;line-height:2.1;color:var(--lamp)}
+  .v-info blockquote span{display:block}
+  .v-note{font-size:12.5px;color:var(--ink-dim)}
+  .v-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;padding-top:8px}
+  .v-nav button{min-height:48px;border:1px solid var(--line-2);background:transparent;padding:6px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;min-width:0}
+  .v-nav button:hover{border-color:var(--lamp)}
+  .v-nav button:disabled{opacity:.35;cursor:default}
+  .v-nav small{font-family:var(--f-hand);font-size:11.5px;color:var(--spiral)}
+  .v-nav span{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .v-nav .next{align-items:flex-end;text-align:right}
+  @media (max-width:860px){
+    .viewer{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,46svh) minmax(0,1fr)}
+    .v-info{border-left:0;border-top:1px solid var(--line)}
+    .v-stage{padding:10px}
+  }
+
+  /* ---------- BORDER (walk) ---------- */
+  section.walk{padding-block:0}
+  .walk-fig{position:relative;aspect-ratio:1400/990;overflow:hidden;background:#000}
+  .walk-img{width:100%;height:100%;object-fit:cover;filter:brightness(var(--flick))}
+  .walk-text{padding-block:48px 72px}
+  .stage{margin:0 0 40px}
+  .kicker{margin:0 0 10px;font-family:var(--f-hand);font-size:13px;letter-spacing:.2em;color:var(--spiral)}
+  .stage h2{margin:0 0 16px}
+  .stage h3{margin:0 0 14px;font-family:var(--f-display);font-weight:700;font-size:clamp(24px,4.4vw,40px);line-height:1.4;letter-spacing:.06em;color:var(--lamp)}
+  .stage p{margin:0 0 14px;max-width:28em;font-size:15.5px;line-height:2.05}
+  .stage.q h3{font-weight:500}
+  .walk-meter,.walk-skip{display:none}
+  .cue{font-family:var(--f-hand);font-size:13px;color:var(--spiral)}
+  .walk:not(.pinned) .cue{display:none}
+  .walk.pinned{height:calc(100vh + 5 * 55vh)}
+  @supports (height:1svh){.walk.pinned{height:calc(100svh + 5 * 55svh)}}
+  .walk.pinned .walk-stick{position:sticky;top:0;height:100vh;overflow:hidden}
+  @supports (height:1svh){.walk.pinned .walk-stick{height:100svh}}
+  .walk.pinned .walk-fig{position:absolute;inset:0;aspect-ratio:auto}
+  .walk.pinned .walk-img{object-position:30% 50%;transform:scale(var(--ws,1));transform-origin:30% 46%;will-change:transform}
+  .walk.pinned .walk-fig::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(10,9,5,.92) 0%,rgba(10,9,5,.55) 42%,rgba(10,9,5,.08) 100%);pointer-events:none}
+  .walk.pinned .walk-text{position:absolute;left:0;right:0;bottom:max(36px,env(safe-area-inset-bottom,0px));padding-block:0;z-index:2}
+  .walk.pinned .stage{position:absolute;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:0;margin:0;opacity:0;transform:translateY(14px);pointer-events:none;transition:opacity .7s ease,transform .7s ease}
+  .walk.pinned .stage.on{opacity:1;transform:none;pointer-events:auto}
+  .walk.pinned .walk-meter{display:block;position:absolute;z-index:2;right:max(14px,env(safe-area-inset-right,0px));top:22%;bottom:22%;width:1px;background:var(--line)}
+  .walk.pinned .walk-meter i{position:absolute;left:-4px;top:calc(var(--wp,0) * (100% - 9px));width:9px;height:9px;background:var(--spiral)}
+  .walk.pinned .walk-skip{display:flex;align-items:center;min-height:44px;position:absolute;z-index:2;top:16px;left:max(16px,env(safe-area-inset-left,0px));font-family:var(--f-hand);font-size:13px;color:var(--ink-dim);text-underline-offset:4px}
+  .walk.pinned .walk-skip:hover{color:var(--lamp)}
+
+  /* ---------- records (なぞって読む) ---------- */
+  .rec{position:relative;max-width:40em;border:1px solid var(--line);background:var(--void-2)}
+  .rec-text{padding:clamp(22px,4vw,38px);display:flex;flex-direction:column;gap:2px}
+  .rec-text p{margin:0;font-family:var(--f-display);font-size:clamp(16px,2.4vw,20px);line-height:2.1}
+  .rec-text .en{margin-top:12px;font-family:var(--f-hand);font-size:13px;letter-spacing:.14em;color:var(--spiral)}
+  .rec canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;transition:opacity 1.2s ease}
+  .rec canvas.gone{opacity:0;pointer-events:none}
+  .rec-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:14px 0 40px;font-family:var(--f-hand);font-size:13px;color:var(--ink-dim)}
+  .rec-after{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px}
+  .rec-after small{font-family:var(--f-hand);font-size:12.5px;color:var(--ink-dim)}
+
+  /* ---------- exhibition / goods ---------- */
+  .expo-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:48px}
+  @media (min-width:900px){.expo-grid{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:72px}}
+  .expo{display:flex;flex-direction:column;gap:10px}
+  .expo .when{margin:0;font-family:var(--f-hand);font-size:13px;color:var(--spiral)}
+  .expo h3{margin:0;font-family:var(--f-display);font-size:clamp(24px,3.4vw,32px);line-height:1.4;color:var(--lamp);letter-spacing:.04em}
+  .expo p{margin:0;font-size:14.5px;color:var(--ink-dim)}
+  .expo a{color:var(--spiral);text-underline-offset:5px}
+  .expo .after{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+  .expo .after b{font-family:var(--f-hand);font-weight:400;color:var(--lamp)}
+
+  /* ---------- about ---------- */
+  .about-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:56px}
+  @media (min-width:860px){.about-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:72px}}
+  .about-me .lede{margin-bottom:20px}
+  .about-me h2{font-size:clamp(24px,3.2vw,32px);text-wrap:balance}
+  .about-me .facts{margin-top:28px}
+  .facts{margin:0;display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:12px 14px;font-size:14px}
+  .facts dt{font-family:var(--f-hand);font-size:13px;color:var(--ink-dim)}
+  .facts dd{margin:0}
+  .h3s{margin:0 0 14px;font-family:var(--f-display);font-size:22px;color:var(--lamp)}
+  .can{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .can li{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr);gap:4px 20px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .can li:first-child{border-top:1px solid var(--line)}
+  .can h4{margin:0;font-family:var(--f-display);font-size:17px;line-height:1.6;color:var(--lamp)}
+  .can p{margin:0;font-size:14px;color:var(--ink-dim)}
+  @media (max-width:560px){.can li{grid-template-columns:minmax(0,1fr)}}
+  .status{margin:18px 0 0;font-family:var(--f-hand);font-size:13px;color:var(--spiral)}
+  .contact{margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px}
+  .contact h3{margin:0;font-family:var(--f-display);font-size:22px;color:var(--lamp)}
+  .contact p{margin:0;font-size:13.5px;color:var(--ink-dim);flex:1 1 260px}
+
+  .fan{background:#0f0e09;border-top:2px solid var(--spiral)}
+  .fan .badge{display:inline-block;margin:0 0 14px;padding:4px 12px;border:1px solid var(--spiral);color:var(--spiral);font-family:var(--f-hand);font-size:13px;letter-spacing:.12em}
+  .fan h2{font-size:clamp(32px,6vw,56px);letter-spacing:.06em;margin:0 0 14px}
+  .fan .notice{max-width:34em;margin:0 0 28px;padding:12px 16px;border-left:3px solid var(--spiral);background:rgba(134,236,236,.06);font-size:14.5px;line-height:2}
+  .env{display:flex;flex-direction:column;align-items:center;gap:14px;width:min(100%,360px);margin:0 auto;padding:0;border:0;background:none;color:var(--lamp);cursor:pointer;font-family:var(--f-body)}
+  .env-body{position:relative;display:block;width:100%;aspect-ratio:3/2;background:#e9e1b4;border:1px solid #bdb582;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;transition:transform .25s}
+  .env:hover .env-body,.env:focus-visible .env-body{transform:translateY(-4px)}
+  .env:focus-visible{outline:2px solid var(--spiral);outline-offset:6px}
+  .env-flap{position:absolute;left:0;right:0;top:0;height:62%;background:#d9d09c;clip-path:polygon(0 0,100% 0,50% 100%)}
+  .env-seal{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:#86ecec;box-shadow:0 0 0 3px #14130d inset;border:3px solid #14130d}
+  .env-label{font-size:14px;color:var(--spiral)}
+  .letter{max-width:760px;padding:clamp(20px,5vw,44px);background:#ece5bd;color:#25220f;border:1px solid #bdb582;box-shadow:0 14px 40px rgba(0,0,0,.55);background-image:repeating-linear-gradient(transparent 0 33px,rgba(37,34,15,.12) 33px 34px);animation:unfold .5s ease-out}
+  .letter[hidden]{display:none}
+  .letter .l-to{margin:0 0 12px;font-family:var(--f-hand);font-size:18px}
+  .letter .l-body{margin:0 0 24px;font-size:15px;line-height:2.2}
+  .letter .l-from{margin:20px 0 18px;text-align:right;font-family:var(--f-hand);font-size:18px}
+  .letter .btn{color:#25220f;border-color:#25220f}
+  .letter .card{border-color:#25220f;background:#14130d}
+  @keyframes unfold{from{opacity:0;transform:translateY(-10px) scaleY(.96)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.letter{animation:none}.env-body{transition:none}}
+  .fan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:16px;max-width:760px}
+  .fan-grid .card{margin:0}
+  .card .fan-tag{display:inline-block;align-self:flex-start;font-size:11.5px;color:var(--spiral);border:1px solid var(--spiral);padding:0 8px;margin-bottom:6px}
+  footer{border-top:1px solid var(--line);padding-block:32px 72px;font-family:var(--f-hand);font-size:12.5px;color:var(--ink-dim)}
+  footer .in{display:flex;flex-direction:column;gap:8px}
+  footer .row{display:flex;align-items:center;gap:10px}
+  footer .sp{color:var(--spiral)}
+  footer .cross{letter-spacing:.14em}
+
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .card.art:hover img,.card.art:focus-visible img{animation:none}
+    .lamp,.eye .ball,.rec canvas,.card{transition:none}
+  }
+</style>
+</head>
+<body>
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="spiral" viewBox="0 0 24 24"><path d="M3 3H21V21H6V8H17V17H10V12H13"/></symbol>
+</svg>
+
+<div class="bar">
+  <div class="in">
+    <a class="logo" href="#top"><svg class="sp" aria-hidden="true"><use href="#spiral"/></svg><span>色橋遊月</span></a>
+    <nav aria-label="ページ内">
+      <a href="#works">作品</a>
+      <a href="#border">BORDER</a>
+      <a href="#exhibition">展示</a>
+      <a href="#about">について</a>
+    </nav>
+  </div>
+</div>
+
+<button class="snd" id="snd" type="button" aria-pressed="false" aria-label="環境音の入り切り(初期は切れています)"><i aria-hidden="true"></i><span id="sndLabel">音 OFF</span></button>
+
+<header class="hero" id="top">
+  <div class="in">
+    <div class="name">
+      <h1>色橋遊月</h1>
+      <span class="yomi">いろはし ゆづき</span>
+    </div>
+    <div class="hero-main">
+      <div class="frame" id="frame">
+        <img src="img/corridor.jpg" width="1400" height="990" alt="黄色い壁紙の廊下の手前に立つ、髪に四角い渦の飾りをつけた子の線画">
+        <div class="lamp" aria-hidden="true"></div>
+      </div>
+      <p class="hint" id="hint">廊下を照らすと、壁の目が開きます。</p>
+      <p class="thesis">平面の子たちが、写真のように静かな廊下に立っています。</p>
+      <p class="meta">イラスト / キャラクターデザイン</p>
+      <div class="hero-cta">
+        <a class="btn fill" href="#works">作品を見る</a>
+        <a class="btn" href="#border">BORDER の廊下を歩く</a>
+      </div>
+      <p class="now"><b>NOW</b><span>BORDER EXHIBITION 2026.10</span><a href="#exhibition">展示について</a></p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="works">
+    <div class="in">
+      <div class="sh"><h2>作品</h2><span class="count" id="count"></span></div>
+      <p class="lede">絵、プログラム、文章と台本をまとめています。気になったものを開くと、大きく見られます。</p>
+      <div class="filters" role="group" aria-label="作品の種類で絞り込む" id="filters">
+        <button class="chip" type="button" data-f="all" aria-pressed="true">すべて</button>
+        <button class="chip" type="button" data-f="art" aria-pressed="false">絵</button>
+        <button class="chip" type="button" data-f="code" aria-pressed="false">プログラム</button>
+        <button class="chip" type="button" data-f="text" aria-pressed="false">文章・台本</button>
+      </div>
+      <div class="works" id="works-grid"></div>
+    </div>
+  </section>
+
+  <section class="walk" id="border">
+    <div class="walk-stick">
+      <div class="walk-fig">
+        <img class="walk-img" id="walkImg" src="img/corridor.jpg" width="1400" height="990" alt="奥へ続く黄色い廊下">
+      </div>
+      <a class="walk-skip" href="#records">廊下を抜ける</a>
+      <div class="walk-meter" aria-hidden="true"><i></i></div>
+      <div class="walk-text in">
+        <div class="stage on" data-i="0">
+          <p class="kicker">主な作品</p>
+          <h2>BORDER</h2>
+          <p>現実と非現実の境界を描いた作品群です。バックルームを下敷きに、平面のキャラクターを写実的な空間に立たせています。</p>
+          <p>すべてを説明するつもりはありません。欠けたところは、欠けたまま持ち帰ってください。</p>
+          <p class="cue">下へスクロールすると、廊下の奥へ進みます。</p>
+        </div>
+        <div class="stage" data-i="1">
+          <h3>現実と非現実</h3>
+          <p>写真のように作り込まれた廊下に、線画の子が立っています。絵だけが、そこから浮いて見えます。</p>
+        </div>
+        <div class="stage" data-i="2">
+          <h3>平面と立体</h3>
+          <p>薄く塗られた2Dの絵が、奥行きのある空間の中にいます。近づくほど、線の粗さが見えてきます。</p>
+        </div>
+        <div class="stage" data-i="3">
+          <h3>人間とそうではないもの</h3>
+          <p>壁やカーテンの模様に、目が紛れています。こちらを見ているのが、誰なのかはわかりません。</p>
+        </div>
+        <div class="stage q" data-i="4">
+          <h3>こちら側にいるのは、いつからでしょうか。</h3>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="records">
+    <div class="in">
+      <div class="sh"><h2>記録</h2></div>
+      <p class="lede">回収された記録です。暗い部分をなぞると、文字が浮かびます。</p>
+      <div class="rec" id="rec">
+        <div class="rec-text">
+          <p>回収された記録です。</p>
+          <p>どこかの世界で、実際にあったかもしれない記録の断片です。</p>
+          <p>こちら側にいるのは、いつからでしたか。</p>
+          <p class="en">YOU HAVE ALREADY CROSSED THE BORDER.</p>
+        </div>
+      </div>
+      <div class="rec-tools" id="recTools">
+        <span id="recHint">マウスや指でなぞってください。</span>
+        <button class="btn sm" type="button" id="recAll">すべて表示</button>
+      </div>
+      <div class="rec-after">
+        <a class="btn fill" href="https://planet0527.github.io/border/" target="_blank" rel="noopener">BORDER の記録庫を開く</a>
+        <small>別のタブで開きます。音が出ます。暗い映像と大きな音があります。</small>
+      </div>
+    </div>
+  </section>
+
+  <section id="exhibition">
+    <div class="in">
+      <div class="expo">
+        <div class="sh"><h2>展示</h2></div>
+        <p class="when">2026年10月 / 大学内</p>
+        <h3>BORDER EXHIBITION 2026.10</h3>
+        <p>「作品」にある BORDER の絵を展示しています。</p>
+        <p>日時や場所の案内は、<a href="https://planet0527.github.io/border/" target="_blank" rel="noopener">BORDER のページ</a>をご覧ください。</p>
+        <div class="after">
+          <p><b>AFTER BORDER</b>　展示のあとに、展示風景と制作過程、新しい記録を追加する予定です。次の出演・出展が決まったら、ここに載せます。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="about">
+    <div class="in">
+      <div class="about-grid">
+        <div class="about-me">
+          <div class="sh"><h2>いろはしゆづきについて</h2></div>
+          <p class="lede">
+            色橋遊月(いろはし ゆづき)の名前で、イラストとキャラクターデザインを描いています。
+            写真のように作り込まれた空間に、平面のキャラクターを立たせた絵が多くあります。小学1年生のころから、ノートに落書きを描き続けてきました。
+          </p>
+          <p class="lede">
+            絵のほかに、プログラム、小説やエッセイ、絵の描き方の電子書籍、ステージの台本も作っています。
+            BORDER は現実と非現実の境界を、「魔導人口台帳」や「マイナスをプラスに」は生まれの不平等を扱っています。境目や、選べないものが、作品に何度も出てきます。
+          </p>
+          <dl class="facts">
+            <dt>活動名</dt><dd>色橋遊月(いろはし ゆづき)</dd>
+            <dt>描くもの</dt><dd>イラスト、キャラクターデザイン</dd>
+            <dt>ほかに</dt><dd>プログラム、文章、電子書籍、ステージ台本</dd>
+            <dt>主な作品</dt><dd>BORDER(2026年10月、大学内で展示)</dd>
+            <dt>依頼</dt><dd>準備中</dd>
+          </dl>
+        </div>
+        <div class="about-can">
+          <h3 class="h3s">描いているもの</h3>
+          <ul class="can">
+            <li><h4>写真の空間に線画</h4><p>廊下や病院のような空間に、手描きのキャラクターを重ねた絵です。BORDER はこの描き方でまとめています。</p></li>
+            <li><h4>キャラクターデザイン</h4><p>全身のデザインと色のラフ、ちびキャラを描いています。</p></li>
+            <li><h4>コラージュ</h4><p>紙やテープ、押し花、ポラロイド風の枠を重ねた、スクラップブック風の絵です。</p></li>
+          </ul>
+          <p class="status">依頼の受付状況と料金は準備中です。決まったら、ここに書きます。</p>
+        </div>
+      </div>
+      <div class="contact" id="contact">
+        <h3>連絡</h3>
+        <p>展示や作品についてのご連絡は、BORDER のページからお願いします。X、pixiv、メールは準備中です。</p>
+        <a class="btn" href="https://planet0527.github.io/border/" target="_blank" rel="noopener">BORDER のページへ</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="fanart" class="fan">
+    <div class="in">
+      <span class="badge">FAN ART</span>
+      <h2>ファンアート</h2>
+      <p class="notice">ここから下は、既存の作品やキャラクターへの<b>ファンアート</b>です。色橋遊月のオリジナル作品ではありません。</p>
+      <button class="env" type="button" id="env" aria-expanded="false" aria-controls="letter">
+        <span class="env-body" aria-hidden="true"><i class="env-flap"></i><i class="env-seal"></i></span>
+        <span class="env-label">ファンアートからの手紙を開く</span>
+      </button>
+      <div class="letter" id="letter" hidden>
+        <p class="l-to">ここまで来てくれたあなたへ</p>
+        <p class="l-body">ここから先は、好きになった作品やキャラクターへ描いた、ファンアートです。<br>色橋遊月のオリジナルではないので、そっと見てください。</p>
+        <div class="fan-grid" id="fan-grid"></div>
+        <p class="l-from">― いろ</p>
+        <button class="btn sm" type="button" id="envClose">手紙をとじる</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="in">
+    <div class="row"><svg class="sp" aria-hidden="true"><use href="#spiral"/></svg><span>© 色橋遊月</span></div>
+    <span class="cross">YOU HAVE ALREADY CROSSED THE BORDER.</span>
+  </div>
+</footer>
+
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="vTitle">
+  <div class="v-top">
+    <span class="v-count" id="vCount"></span>
+    <button class="btn sm" type="button" id="vClose">閉じる</button>
+  </div>
+  <div class="v-stage" id="vStage"></div>
+  <aside class="v-info" id="vInfo">
+    <span class="tag" id="vTag"></span>
+    <h3 id="vTitle"></h3>
+    <p id="vDesc"></p>
+    <div id="vExtra"></div>
+    <dl id="vMeta"></dl>
+    <div id="vAct"></div>
+    <div class="v-nav">
+      <button type="button" id="vPrev"><small>← 前へ</small><span id="vPrevT"></span></button>
+      <button type="button" id="vNext" class="next"><small>次へ →</small><span id="vNextT"></span></button>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var coarse=window.matchMedia('(pointer: coarse)').matches;
+  function $(id){return document.getElementById(id);}
+  function el(tag, cls, text){var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e;}
+  var SPIRAL='<svg class="glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M3 3H21V21H6V8H17V17H10V12H13"/></svg>';
+
+  /* ---------- 作品データ ---------- */
+  var KIND={fan:'ファンアート',art:'絵',code:'プログラム',text:'文章・台本'};
+  var WORKS=[
+    {id:'corridor',kind:'art',tag:'BORDER',title:'黄色い廊下',img:'img/corridor.jpg',w:1400,h:990,
+      alt:'黄色い壁紙の廊下の手前に立つ、四角い渦の髪飾りの子の線画',
+      desc:'黄色い壁紙の廊下の手前に、四角い渦の髪飾りをつけた子が立っています。写真のように作り込まれた廊下に、線画を重ねています。',
+      meta:[['シリーズ','BORDER'],['種類','イラスト']]},
+    {id:'hospital',kind:'art',tag:'BORDER',title:'病院の廊下',img:'img/hospital.jpg',w:1500,h:1061,
+      alt:'暗い病院の廊下に立つ、薄く光る子',
+      desc:'暗い病院の廊下に、薄く光る子が立っています。人のいない広い場所に、絵だけがいます。',
+      meta:[['シリーズ','BORDER'],['種類','イラスト']]},
+    {id:'trio',kind:'art',tag:'BORDER',title:'廊下の三人',img:'img/trio.jpg',w:1400,h:987,
+      alt:'黄色い廊下に三人が並ぶ線画',
+      desc:'黄色い廊下に、三人が並んでいます。',
+      meta:[['シリーズ','BORDER'],['種類','イラスト']]},
+    {id:'design',kind:'art',tag:'キャラクターデザイン',title:'全身のデザイン',img:'img/candy.jpg',w:990,h:1400,
+      alt:'ピンクの色ラフで描いた、リボンとフリルの服の全身キャラクターデザイン',
+      desc:'全身のキャラクターデザインです。色のラフの段階で、髪のリボンやフリルの服、縞のタイツまで描いています。',
+      meta:[['種類','キャラクターデザイン'],['段階','色ラフ']]},
+    {id:'eyes',kind:'art',tag:'ラフ',title:'目と渦のラフ',img:'img/eyes.jpg',w:976,h:688,
+      alt:'目と四角い渦を散らした、顔の線画のラフ',
+      desc:'顔のまわりに、目と四角い渦を散らした線画のラフです。BORDER の壁に紛れる目の元になっています。',
+      meta:[['種類','ラフ']]},
+    {id:'scrap',kind:'art',tag:'コラージュ',title:'スクラップブック風',img:'img/scrap2.jpg',w:1016,h:1400,
+      alt:'紙やテープ、押し花を重ねたスクラップブック風のコラージュ',
+      desc:'紙やテープ、押し花、ポラロイド風の枠を重ねたコラージュです。手書きの文字も入れています。',
+      meta:[['種類','コラージュ']]},
+    {id:'ledger',kind:'code',tag:'プログラム',title:'魔導人口台帳',sub:'生まれの不平等を題材にした人生シミュレーション',
+      desc:'生まれの不平等を題材にした、文章で進む人生シミュレーションのゲームです。',
+      meta:[['種類','ゲーム'],['形式','ブラウザで動きます']],
+      link:'https://claude.ai/artifact/JjiPgEtVTYMDXENWApNdQf'},
+    {id:'form',kind:'code',tag:'プログラム',title:'フォーム差分ラボ',sub:'プロと自分の動画を並べて、動きの差を測る',
+      desc:'プロと自分の動画を並べ、骨格の動きの差を測って見比べるツールです。動画は端末の中だけで処理します。',
+      meta:[['種類','ツール'],['形式','ブラウザで動きます']],
+      link:'https://claude.ai/artifact/NthC41jtPSerM19wJaPfaE'},
+    {id:'face',kind:'code',tag:'プログラム',title:'Face Atelier',sub:'顔写真から骨格と色を診断する',
+      desc:'顔写真から骨格や黄金比、パーソナルカラーを診断し、好きな色を似合わせる使い方を探せるツールです。',
+      meta:[['種類','ツール'],['形式','ブラウザで動きます']],
+      link:'https://claude.ai/artifact/QE8TPLEugAYBx4D6fjGEem'},
+    {id:'estate',kind:'code',tag:'プログラム',title:'不動産市場レポート工房',sub:'不動産市場のレポートを作る',
+      desc:'不動産市場のレポートを作るためのツールです。',
+      meta:[['種類','ツール'],['形式','ブラウザで動きます']],
+      link:'https://claude.ai/artifact/AohHKjUyBC6Lst3f4FzrsL'},
+    {id:'fan1',kind:'fan',tag:'ファンアート',title:'Yukito',img:'img/fan1.jpg',w:1000,h:1414,
+      alt:'白い髪の青年のファンアート。伏し目がちに微笑んでいる',desc:'ファンアートです。色橋遊月のオリジナルキャラクターではありません。',
+      meta:[['種類','ファンアート']]},
+    {id:'fan2',kind:'fan',tag:'ファンアート',title:'マーゴ',img:'img/fan2.jpg',w:1000,h:1414,
+      alt:'紫の髪の少女のファンアート。頬に絆創膏をつけ、手を組んでいる',desc:'ファンアートです。色橋遊月のオリジナルキャラクターではありません。',
+      meta:[['種類','ファンアート']]},
+    {id:'book',kind:'text',tag:'電子書籍',title:'らくがきから始める絵の説明書',img:'img/book-cover.jpg',w:900,h:1440,
+      alt:'棒人間しか描けない人のための、らくがきから始める絵の説明書の表紙。ペンで描いた少女のらくがき',
+      desc:'棒人間しか描けない人に向けた、らくがきの遊び方の本です。第1部「あそぶ」、第2部「ひみつ」、第3部「つづける」と付録で、全30ページ。章ごとに読めるプレビュー版です。',
+      meta:[['種類','電子書籍(プレビュー版)'],['構成','3部と付録、全30ページ']],
+      link:'https://claude.ai/artifact/1ZDoaDx4uHGXhNJHgBnvZz'},
+    {id:'novel',kind:'text',tag:'小説・エッセイ',title:'マイナスをプラスに',sub:'自伝的な小説・エッセイ',
+      desc:'生まれる場所も、親も、選べない。その不公平さから書き出した文章です。好きなことを学ぶにはお金がいる、という現実にも触れています。',
+      excerpt:['この世界は、随分と不公平にできている。','生まれる場所を選べない。','親を選べない。','家庭の経済力も、育つ環境も、子どもにはどうすることもできない。'],
+      note:'序章の冒頭です。全文の公開は準備中です。',
+      meta:[['種類','小説・エッセイ']]},
+    {id:'stage1',kind:'text',tag:'ステージ台本',title:'マイナスをプラスに',sub:'学園祭 ひとり芝居風のステージ',
+      desc:'雨の止まない町に生まれた女の子の童話を、4つの章で語るステージです。',
+      meta:[['種類','ステージ台本'],['長さ','20分'],['構成','4章、出演1名'],['小道具','透明のビニール傘、リボン']]},
+    {id:'stage2',kind:'text',tag:'ステージ台本',title:'華憧少女',sub:'学園祭 ふたりのユニット',
+      desc:'憧れの物語に迷い込んだ、ふたりの少女のステージです。かわいい曲から始まり、だんだん童話の闇へ沈み、0時の鐘で終わります。',
+      meta:[['種類','ステージ台本'],['長さ','30分'],['構成','本編4曲とアンコール1曲']]}
+  ];
+
+  /* ---------- 一覧 ---------- */
+  var grid=$('works-grid'), filter='all', cards=[];
+  var fgrid=$('fan-grid');
+  $('env').addEventListener('click',function(){ $('letter').hidden=false; $('env').hidden=true; $('letter').scrollIntoView({block:'start',behavior:reduce?'auto':'smooth'}); tick(.2); });
+  $('envClose').addEventListener('click',function(){ $('letter').hidden=true; $('env').hidden=false; $('env').focus(); });
+  WORKS.forEach(function(w){
+    var b=el('button','card '+(w.img?'art':'tx '+w.kind));
+    b.type='button'; b.setAttribute('data-id',w.id);
+    b.setAttribute('aria-label',w.title+'('+KIND[w.kind]+')を開く');
+    if(w.img){
+      var im=document.createElement('img'); im.src=w.img; im.width=w.w; im.height=w.h; im.alt=w.alt; im.loading='lazy';
+      b.appendChild(im);
+      var c=el('div','cap'); c.appendChild(el('span',w.kind==='fan'?'fan-tag':'tag',w.tag)); c.appendChild(el('h3',null,w.title)); b.appendChild(c);
+    } else {
+      b.insertAdjacentHTML('beforeend',SPIRAL);
+      b.appendChild(el('span','tag',w.tag)); b.appendChild(el('h3',null,w.title)); b.appendChild(el('span','sub',w.sub));
+      b.appendChild(el('span','open',w.kind==='code'?'開いて見る →':'読む →'));
+    }
+    b.addEventListener('click',function(){ openWork(w.id,b); });
+    if(w.kind==='fan'){ fgrid.appendChild(b); return; }
+    grid.appendChild(b); cards.push({w:w,node:b});
+  });
+  function applyFilter(f){
+    filter=f; var n=0;
+    cards.forEach(function(c){ var show=f==='all'||c.w.kind===f; c.node.hidden=!show; if(show) n++; });
+    $('count').textContent=n+' 点';
+    Array.prototype.forEach.call($('filters').children,function(b){ b.setAttribute('aria-pressed',b.getAttribute('data-f')===f?'true':'false'); });
+  }
+  $('filters').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) applyFilter(b.getAttribute('data-f')); });
+  applyFilter('all');
+
+  /* ---------- ビューア ---------- */
+  var vw=$('viewer'), vStage=$('vStage'), list=[], idx=0, lastFocus=null;
+  var inFan=false;
+  function visible(){ return WORKS.filter(function(w){return inFan?w.kind==='fan':(w.kind!=='fan'&&(filter==='all'||w.kind===filter));}); }
+  function renderWork(){
+    var w=list[idx];
+    $('vCount').textContent=(idx+1)+' / '+list.length;
+    $('vTag').textContent=w.tag; $('vTitle').textContent=w.title; $('vDesc').textContent=w.desc;
+    vStage.className='v-stage'; vStage.scrollTop=0; vStage.scrollLeft=0; vStage.textContent='';
+    if(w.img){
+      var im=document.createElement('img'); im.src=w.img; im.alt=w.alt; im.width=w.w; im.height=w.h;
+      vStage.appendChild(im);
+    } else {
+      var p=el('div','v-panel'); p.insertAdjacentHTML('beforeend',SPIRAL); p.appendChild(el('span','tag',w.tag)); p.appendChild(el('b',null,w.title)); vStage.appendChild(p);
+    }
+    var ex=$('vExtra'); ex.textContent='';
+    if(w.excerpt){
+      var q=document.createElement('blockquote'); w.excerpt.forEach(function(t){ q.appendChild(el('span',null,t)); }); ex.appendChild(q);
+      if(w.note) ex.appendChild(el('p','v-note',w.note));
+    }
+    var dl=$('vMeta'); dl.textContent='';
+    w.meta.forEach(function(m){ dl.appendChild(el('dt',null,m[0])); dl.appendChild(el('dd',null,m[1])); });
+    var act=$('vAct'); act.textContent='';
+    if(w.link){
+      var a=el('a','btn fill',w.kind==='text'?'開いて読む':'開いて使う'); a.href=w.link; a.target='_blank'; a.rel='noopener'; act.appendChild(a);
+      act.appendChild(el('p','v-note','別のタブで開きます。'));
+    }
+    var pv=list[idx-1], nx=list[idx+1];
+    $('vPrev').disabled=!pv; $('vNext').disabled=!nx;
+    $('vPrevT').textContent=pv?pv.title:'-'; $('vNextT').textContent=nx?nx.title:'-';
+    $('vInfo').scrollTop=0;
+  }
+  function openWork(id,from){
+    inFan=/^fan/.test(id); if(inFan&&$('letter').hidden){ $('letter').hidden=false; $('env').hidden=true; }
+    list=visible(); idx=list.map(function(w){return w.id;}).indexOf(id);
+    if(idx<0&&!inFan){ applyFilter('all'); list=visible(); idx=list.map(function(w){return w.id;}).indexOf(id); }
+    if(idx<0) return;
+    lastFocus=from||document.activeElement;
+    renderWork(); vw.hidden=false; root.classList.add('vopen'); $('vClose').focus();
+  }
+  function closeWork(){
+    vw.hidden=true; root.classList.remove('vopen'); vStage.textContent='';
+    if(lastFocus&&lastFocus.focus) lastFocus.focus();
+  }
+  function step(d){ var n=idx+d; if(n<0||n>=list.length) return; idx=n; renderWork(); }
+  $('vClose').addEventListener('click',closeWork);
+  $('vPrev').addEventListener('click',function(){step(-1);});
+  $('vNext').addEventListener('click',function(){step(1);});
+  vStage.addEventListener('click',function(e){
+    if(e.target.tagName!=='IMG') return;
+    var im=e.target;
+    if(vStage.classList.contains('zoomed')){ vStage.classList.remove('zoomed'); return; }
+    var r=im.getBoundingClientRect(), fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+    vStage.classList.add('zoomed');
+    var nr=im.getBoundingClientRect();
+    vStage.scrollLeft=fx*nr.width-vStage.clientWidth/2; vStage.scrollTop=fy*nr.height-vStage.clientHeight/2;
+  });
+  var tx0=null, ty0=null;
+  vw.addEventListener('touchstart',function(e){ if(e.touches.length===1&&!vStage.classList.contains('zoomed')){tx0=e.touches[0].clientX; ty0=e.touches[0].clientY;} else tx0=null; },{passive:true});
+  vw.addEventListener('touchend',function(e){
+    if(tx0===null) return;
+    var t=e.changedTouches[0], dx=t.clientX-tx0, dy=t.clientY-ty0; tx0=null;
+    if(Math.abs(dx)>70 && Math.abs(dx)>Math.abs(dy)*1.6) step(dx<0?1:-1);
+  },{passive:true});
+  document.addEventListener('keydown',function(e){
+    if(vw.hidden) return;
+    if(e.key==='Escape') closeWork();
+    else if(e.key==='ArrowRight') step(1);
+    else if(e.key==='ArrowLeft') step(-1);
+    else if(e.key==='Tab'){
+      var f=vw.querySelectorAll('button:not([disabled]),a[href]'); if(!f.length) return;
+      var first=f[0], last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault(); last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault(); first.focus();}
+    }
+  });
+  function fromHash(){ var h=location.hash; if(h.indexOf('#w-')===0) openWork(h.slice(3)); }
+  window.addEventListener('hashchange',fromHash); fromHash();
+
+  /* ---------- サウンド(初期は切れています) ---------- */
+  var AC=null, master=null, lp=null, sfx=null, soundOn=false;
+  function audioStart(){
+    try{
+      var Ctx=window.AudioContext||window.webkitAudioContext; if(!Ctx) return false;
+      AC=new Ctx();
+      master=AC.createGain(); master.gain.value=0; master.connect(AC.destination);
+      sfx=AC.createGain(); sfx.gain.value=1; sfx.connect(AC.destination);
+      lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=700; lp.connect(master);
+      [[50,'sine',.55],[100,'sawtooth',.1],[120,'square',.025]].forEach(function(o){
+        var os=AC.createOscillator(); os.type=o[1]; os.frequency.value=o[0];
+        var g=AC.createGain(); g.gain.value=o[2]; os.connect(g); g.connect(lp); os.start();
+      });
+      var len=AC.sampleRate*2, buf=AC.createBuffer(1,len,AC.sampleRate), d=buf.getChannelData(0);
+      for(var i=0;i<len;i++) d[i]=Math.random()*2-1;
+      var ns=AC.createBufferSource(); ns.buffer=buf; ns.loop=true;
+      var bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=.6;
+      var ng=AC.createGain(); ng.gain.value=.03; ns.connect(bp); bp.connect(ng); ng.connect(master); ns.start();
+      if(AC.state==='suspended') AC.resume();
+      return true;
+    }catch(e){ AC=null; return false; }
+  }
+  function setSound(on){
+    soundOn=on;
+    var b=$('snd'); b.setAttribute('aria-pressed', on?'true':'false'); $('sndLabel').textContent=on?'音 ON':'音 OFF';
+    if(!AC) return;
+    master.gain.setTargetAtTime(on?.16:0, AC.currentTime, .15);
+    sfx.gain.setTargetAtTime(on?1:0, AC.currentTime, .05);
+  }
+  function tick(vol){
+    if(!AC||!soundOn) return;
+    try{
+      var n=Math.floor(AC.sampleRate*.06), buf=AC.createBuffer(1,n,AC.sampleRate), d=buf.getChannelData(0);
+      for(var i=0;i<n;i++) d[i]=Math.random()*2-1;
+      var s=AC.createBufferSource(); s.buffer=buf;
+      var hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1400;
+      var g=AC.createGain(), t=AC.currentTime; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+.05);
+      s.connect(hp); hp.connect(g); g.connect(sfx); s.start(t);
+    }catch(e){}
+  }
+  function setDepth(p){ if(!AC||!lp) return; lp.frequency.setTargetAtTime(700-p*540, AC.currentTime, .2); }
+  $('snd').addEventListener('click',function(){
+    if(!AC){ if(!audioStart()) return; }
+    if(AC.state==='suspended') AC.resume();
+    setSound(!soundOn);
+  });
+
+  /* ---------- ちらつき ---------- */
+  function flicker(seq,done){
+    if(reduce){ if(done) done(); return; }
+    var i=0;
+    (function stepF(){
+      if(i>=seq.length){ root.style.setProperty('--flick',1); if(done) done(); return; }
+      var s=seq[i++]; root.style.setProperty('--flick',s[0]);
+      if(s[0]<.5) tick(.22+Math.random()*.1);
+      setTimeout(stepF,s[1]);
+    })();
+  }
+  function ambient(){
+    setTimeout(function(){
+      if(!document.hidden) flicker([[.25,70],[1,80],[.15,110],[1,40]]);
+      ambient();
+    }, 9000+Math.random()*9000);
+  }
+  setTimeout(function(){ flicker([[.12,80],[1,60],[.2,100],[1,45],[.08,160],[.9,50],[.3,120],[1,60]], ambient); },300);
+
+  /* ---------- 廊下を照らす(目が開く) ---------- */
+  var frame=$('frame');
+  var EYES=[[7,20,5],[15,46,6.5],[24,27,4.5],[11,70,5.5],[27,62,4.2],[95,38,4.5],[4,50,3.5]];
+  var eyeEls=[];
+  EYES.forEach(function(e){
+    var s=el('span','eye');
+    s.style.left=e[0]+'%'; s.style.top=e[1]+'%'; s.style.width=e[2]+'%';
+    s.innerHTML='<svg viewBox="0 0 40 24" aria-hidden="true"><g class="ball"><path class="lid" d="M2 12C10 1 30 1 38 12C30 23 10 23 2 12Z"/><circle class="iris" cx="20" cy="12" r="7"/><circle class="pup" cx="20" cy="12" r="3"/></g></svg>';
+    frame.insertBefore(s, frame.querySelector('.lamp'));
+    eyeEls.push({node:s, pup:s.querySelector('.pup'), iris:s.querySelector('.iris')});
+  });
+  var manualUntil=0, heroVisible=true;
+  if(coarse){ $('hint').textContent='光は勝手に動いています。タップすると、そこを照らします。'; }
+  var px=0, py=0, pending=false;
+  function lampUpdate(){
+    pending=false;
+    var r=frame.getBoundingClientRect();
+    frame.style.setProperty('--lx',px+'px'); frame.style.setProperty('--ly',py+'px');
+    var reach=r.width*.3;
+    eyeEls.forEach(function(o){
+      var b=o.node.getBoundingClientRect();
+      var cx=b.left+b.width/2-r.left, cy=b.top+b.height/2-r.top;
+      var dx=px-cx, dy=py-cy, dist=Math.sqrt(dx*dx+dy*dy);
+      var open=dist<reach;
+      o.node.classList.toggle('open',open);
+      if(open){
+        var m=Math.min(6,dist/30), a=Math.atan2(dy,dx);
+        var tx=Math.cos(a)*m, ty=Math.sin(a)*m*.6;
+        o.pup.style.transform='translate('+tx+'px,'+ty+'px)';
+        o.iris.style.transform='translate('+(tx*.6)+'px,'+(ty*.6)+'px)';
+      }
+    });
+  }
+  function lampMove(e){
+    var r=frame.getBoundingClientRect(); px=e.clientX-r.left; py=e.clientY-r.top;
+    if(e.pointerType==='touch') manualUntil=performance.now()+2500;
+    frame.classList.add('lit');
+    if(!pending){pending=true; requestAnimationFrame(lampUpdate);}
+  }
+  frame.addEventListener('pointermove',lampMove);
+  frame.addEventListener('pointerdown',lampMove);
+  frame.addEventListener('pointerleave',function(e){
+    if(e.pointerType==='touch') return;
+    frame.classList.remove('lit');
+    eyeEls.forEach(function(o){o.node.classList.remove('open');});
+  });
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(es){ heroVisible=es[0].isIntersecting; }).observe(frame);
+  }
+  function autoLoop(t){
+    if(coarse && !reduce && heroVisible && !document.hidden && performance.now()>manualUntil){
+      var r=frame.getBoundingClientRect();
+      px=r.width*(.5+.4*Math.sin(t/3800)); py=r.height*(.5+.28*Math.sin(t/2600+1));
+      frame.classList.add('lit');
+      if(!pending){pending=true; requestAnimationFrame(lampUpdate);}
+    }
+    requestAnimationFrame(autoLoop);
+  }
+  requestAnimationFrame(autoLoop);
+
+  /* ---------- 廊下を進む(BORDER) ---------- */
+  var walk=$('border'), stages=walk.querySelectorAll('.stage'), curStage=0, ticking=false;
+  var pinned=!reduce;
+  if(pinned) walk.classList.add('pinned');
+  function walkUpdate(){
+    ticking=false;
+    if(!pinned) return;
+    var r=walk.getBoundingClientRect(), total=walk.offsetHeight-window.innerHeight;
+    var p=total>0 ? Math.min(1,Math.max(0,-r.top/total)) : 0;
+    walk.style.setProperty('--ws',(1+p*1.2).toFixed(3));
+    walk.style.setProperty('--wp',p.toFixed(3));
+    var idx2=Math.min(stages.length-1,Math.floor(p*stages.length));
+    if(idx2!==curStage){
+      curStage=idx2;
+      stages.forEach(function(s,i){s.classList.toggle('on',i===idx2);});
+    }
+    setDepth(p);
+  }
+  function onScroll(){ if(!ticking){ticking=true; requestAnimationFrame(walkUpdate);} markNav(); }
+
+  /* ---------- なぞって読む記録 ---------- */
+  var rec=$('rec'), recDone=false, canvas=null, ctx=null, gridA=null, GC=28, GR=1, marked=0, last=null, down=false;
+  function recInit(){
+    if(recDone) return;
+    if(!canvas){ canvas=document.createElement('canvas'); canvas.setAttribute('aria-hidden','true'); rec.appendChild(canvas); bindScratch(); }
+    var r=rec.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+    canvas.width=Math.round(r.width*dpr); canvas.height=Math.round(r.height*dpr);
+    ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle='#0b0a06'; ctx.fillRect(0,0,r.width,r.height);
+    for(var i=0;i<1400;i++){ ctx.fillStyle='rgba(241,235,194,'+(Math.random()*.06)+')'; ctx.fillRect(Math.random()*r.width,Math.random()*r.height,1+Math.random()*2,1); }
+    ctx.fillStyle='rgba(241,235,194,.4)'; ctx.font='14px "Yusei Magic","Hiragino Maru Gothic ProN",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('なぞってください', r.width/2, r.height/2);
+    GR=Math.max(4,Math.round(GC*r.height/r.width)); gridA=new Uint8Array(GC*GR); marked=0; last=null;
+  }
+  function mark(x,y,w,h){
+    var cx=Math.floor(x/w*GC), cy=Math.floor(y/h*GR);
+    for(var dy=-1;dy<=1;dy++) for(var dx=-1;dx<=1;dx++){
+      var gx=cx+dx, gy=cy+dy;
+      if(gx<0||gy<0||gx>=GC||gy>=GR) continue;
+      var k=gy*GC+gx; if(!gridA[k]){gridA[k]=1; marked++;}
+    }
+  }
+  function scratch(e){
+    if(recDone||!ctx) return;
+    var r=canvas.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    ctx.globalCompositeOperation='destination-out';
+    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=coarse?72:46; ctx.strokeStyle='#000';
+    ctx.beginPath(); ctx.moveTo(last?last.x:x, last?last.y:y); ctx.lineTo(x+.01,y); ctx.stroke();
+    if(last){
+      var steps=Math.ceil(Math.hypot(x-last.x,y-last.y)/18);
+      for(var i=1;i<=steps;i++) mark(last.x+(x-last.x)*i/steps, last.y+(y-last.y)*i/steps, r.width, r.height);
+    } else mark(x,y,r.width,r.height);
+    last={x:x,y:y};
+    var ratio=marked/(GC*GR);
+    if(ratio>.5) recReveal();
+    else if(ratio>.28) $('recHint').textContent='あと少しで読めます。';
+  }
+  function bindScratch(){
+    canvas.addEventListener('pointerdown',function(e){down=true; last=null; try{canvas.setPointerCapture(e.pointerId);}catch(x){} scratch(e);});
+    canvas.addEventListener('pointermove',function(e){ if(e.pointerType==='mouse'||down) scratch(e); });
+    function up(){down=false; last=null;}
+    canvas.addEventListener('pointerup',up); canvas.addEventListener('pointercancel',up);
+    canvas.addEventListener('pointerleave',function(){last=null;});
+  }
+  function recReveal(){
+    if(recDone) return; recDone=true;
+    if(canvas){ canvas.classList.add('gone'); setTimeout(function(){ if(canvas) canvas.style.display='none'; },1300); }
+    $('recTools').style.visibility='hidden';
+    flicker([[.3,60],[1,70],[.2,90],[1,40]]);
+  }
+  $('recAll').addEventListener('click',recReveal);
+  window.addEventListener('load',recInit);
+  var rt=null; window.addEventListener('resize',function(){ clearTimeout(rt); rt=setTimeout(function(){ recInit(); walkUpdate(); },200); });
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){recInit();});
+  setTimeout(recInit,0);
+
+  /* ---------- ナビ ---------- */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.bar nav a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'));});
+  function markNav(){
+    var y=window.scrollY+90, cur=-1;
+    secs.forEach(function(s,i){ if(s && s.offsetTop<=y) cur=i; });
+    links.forEach(function(a,i){ a.classList.toggle('on', i===cur); });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+
+  /* 長押しメニュー(画像を保存)を出さない */
+  document.addEventListener('contextmenu',function(e){
+    if(e.target.closest && e.target.closest('img,canvas,.frame,.walk-fig,.card,.v-stage')) e.preventDefault();
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(!AC) return;
+    if(document.hidden) AC.suspend(); else if(soundOn) AC.resume();
+  });
+  walkUpdate(); markNav();
+})();
+</script>
+
+</body>
+</html>
